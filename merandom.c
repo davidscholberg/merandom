@@ -1,9 +1,9 @@
-// TODO: use mknod system call within module: http://stackoverflow.com/questions/5970595/create-a-device-node-in-code
 // TODO: enable write operation on device file to set seed value?
 // TODO: find out where file_operations interfaces are documented
 // TODO: look into platform portability: http://kernelnewbies.org/WritingPortableDrivers
 
 #include <linux/module.h>
+#include <linux/miscdevice.h>
 #include <linux/kernel.h>
 #include <linux/fs.h>
 #include <asm/uaccess.h>
@@ -22,7 +22,6 @@ static ssize_t merandom_write(struct file *, const char *, size_t, loff_t *);
 #define MERANDOM_BUF_LEN 16 * sizeof (uint64_t)
 #define MERANDOM_STATE_BUF_LEN 16
 
-static int major_num;
 static int device_open = 0;       // is device open?
 //static unsigned char seed;
 //static unsigned char rc;          // current random character
@@ -39,6 +38,13 @@ static struct file_operations fops = {
 	.write = merandom_write,
 	.open = merandom_open,
 	.release = merandom_release
+};
+
+static struct miscdevice merandom_miscdev = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = MERANDOM_DEV_NAME,
+	.fops = &fops,
+	.mode = S_IRUGO,
 };
 
 /*
@@ -146,17 +152,17 @@ merandom_write(struct file *filp, const char *buff, size_t len, loff_t * off)
 
 static int __init merandom_init(void)
 {
-	major_num = register_chrdev(0, MERANDOM_DEV_NAME, &fops);
-	if (major_num < 0) {
-		printk(KERN_ALERT "%s: registration failed: %d\n", MERANDOM_DEV_NAME, major_num);
-		return major_num;
+	int ret;
+	ret= misc_register(&merandom_miscdev);
+	if (ret) {
+		pr_err("%s: misc_register failed: %d\n", MERANDOM_DEV_NAME,
+				ret);
+		return ret;
 	}
 
 	printk(KERN_INFO "%s: registered\n", MERANDOM_DEV_NAME);
-	printk(KERN_INFO "%s: create device file with: mknod /dev/%s c %d 0\n",
-			MERANDOM_DEV_NAME,
-			MERANDOM_DEV_NAME,
-			major_num);
+	printk(KERN_INFO "%s: created device file /dev/%s\n",
+			MERANDOM_DEV_NAME, MERANDOM_DEV_NAME);
 
 	// TODO: seed with actual random value
 	merandom_seed();
@@ -174,12 +180,18 @@ static int __init merandom_init(void)
 
 static void __exit merandom_exit(void)
 {
-	unregister_chrdev(major_num, MERANDOM_DEV_NAME);
-
-	printk(KERN_INFO "%s: unregistered\n", MERANDOM_DEV_NAME);
-	printk(KERN_INFO "%s: /dev/%s is no longer needed\n",
-			MERANDOM_DEV_NAME,
-			MERANDOM_DEV_NAME);
+	int ret;
+	ret = misc_deregister(&merandom_miscdev);
+	if (ret) {
+		pr_err("%s: misc_deregister failed: %d\n", MERANDOM_DEV_NAME,
+				ret);
+	}
+	else {
+		printk(KERN_INFO "%s: unregistered\n", MERANDOM_DEV_NAME);
+		printk(KERN_INFO "%s: deleted /dev/%s\n",
+				MERANDOM_DEV_NAME,
+				MERANDOM_DEV_NAME);
+	}
 }
 
 module_init(merandom_init);
