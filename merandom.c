@@ -1,4 +1,7 @@
-/* TODO: enable multiple simultaneous reads */
+/* TODO: enable multiple simultaneous reads:
+ * we might need dynamic mem alloc:
+ * http://www.roman10.net/linux-kernel-programmingmemory-allocation/
+ * or we might just allow different process to read the same rb */
 /* TODO: enable write operation on device file to set seed value? */
 /* TODO: find out where file_operations interfaces are documented */
 /* TODO: look into platform portability:
