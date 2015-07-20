@@ -1,3 +1,4 @@
+/* TODO: enable multiple simultaneous reads */
 /* TODO: enable write operation on device file to set seed value? */
 /* TODO: find out where file_operations interfaces are documented */
 /* TODO: look into platform portability:
@@ -20,7 +21,7 @@ static ssize_t merandom_read(struct file *, char *, size_t, loff_t *);
 static ssize_t merandom_write(struct file *, const char *, size_t, loff_t *);
 
 #define MERANDOM_DEV_NAME "merandom"
-#define MERANDOM_BUF_LEN (16 * sizeof(uint64_t))
+#define MERANDOM_BUF_LEN (128 * sizeof(uint64_t))
 #define MERANDOM_STATE_BUF_LEN 16
 
 static int device_open;       /* is device open? */
@@ -114,11 +115,12 @@ static int merandom_release(struct inode *inode, struct file *file)
 }
 
 static ssize_t merandom_read(struct file *filp,	/* see include/linux/fs.h   */
-			   char *buf,		/* buffer to fill with data */
+			   char __user *buf,	/* buffer to fill with data */
 			   size_t len,		/* length of the buffer     */
 			   loff_t *off)
 {
 	ssize_t bytes_read = len; /* always output len bytes */
+	ssize_t bytes_to_copy = 0;
 
 	while (len) {
 		/* if we run out of random data, get more */
@@ -126,17 +128,14 @@ static ssize_t merandom_read(struct file *filp,	/* see include/linux/fs.h   */
 			merandom_fill_rb(rb, sizeof(rb));
 			rb_ptr = rb;
 		}
-		/*
-		 * The buffer is in the user data segment, not the kernel
-		 * segment so "*" assignment won't work.  We have to use
-		 * put_user which copies data from the kernel data segment to
-		 * the user data segment.
-		 */
-		put_user(*rb_ptr, buf);
 
-		rb_ptr++;
-		buf++;
-		len--;
+		bytes_to_copy = min(len, sizeof(rb) - (rb_ptr - rb));
+		if (copy_to_user(buf, rb_ptr, bytes_to_copy))
+			return -EFAULT;
+
+		rb_ptr += bytes_to_copy;
+		buf += bytes_to_copy;
+		len -= bytes_to_copy;
 	}
 
 	return bytes_read;
