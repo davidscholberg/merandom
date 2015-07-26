@@ -11,7 +11,7 @@ To build the module, you'll need a working Linux installation and the Linux kern
 Assuming you have the Linux headers and build tools installed, you can build the merandom module with the following commands:
 
 ```
-git clone https://github.com/davidscholberg/merandom
+git clone https://github.com/davidscholberg/merandom.git
 cd merandom
 KDIR=/lib/modules/$(uname -r)/build make
 ```
