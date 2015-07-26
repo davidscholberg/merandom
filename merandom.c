@@ -25,10 +25,10 @@
  * http://kernelnewbies.org/WritingPortableDrivers */
 
 #include <linux/module.h>
-#include <linux/miscdevice.h>
 #include <linux/kernel.h>
-#include <linux/fs.h>
-#include <linux/uaccess.h>
+#include <linux/miscdevice.h>   /* for misc_register/misc_deregister */
+#include <linux/fs.h>           /* for file_operations struct */
+#include <linux/uaccess.h>      /* for copy_to_user */
 
 static void merandom_fill_rb(char *, size_t);
 static uint64_t merandom_prng(void);
@@ -205,8 +205,7 @@ static void __exit merandom_exit(void)
 	if (ret) {
 		pr_err("%s: misc_deregister failed: %d\n", MERANDOM_DEV_NAME,
 				ret);
-	}
-	else {
+	} else {
 		pr_info("%s: unregistered\n", MERANDOM_DEV_NAME);
 		pr_info("%s: deleted /dev/%s\n",
 				MERANDOM_DEV_NAME,
